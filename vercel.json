@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": "npm test",
+  "outputDirectory": "dist",
+  "functions": {"api/index.mjs": {"maxDuration": 180, "includeFiles": "dist/neighborhoods.json"}},
+  "rewrites": [{"source": "/api/:route", "destination": "/api/index?route=:route"}],
+  "crons": [{"path": "/api/collect", "schedule": "0 8 * * *"}]
+}

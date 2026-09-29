@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {expectedBand,validateAnswer,observations,JevClassifier} from '../classification.mjs';
+import {readFile} from 'node:fs/promises';
+import {rows,describeSensors} from '../purpleair.mjs';
+test('limites exatos, acima da escala e valores inválidos',()=>{for(const [v,b] of [[0,'boa'],[25,'boa'],[25.01,'moderada'],[50,'moderada'],[50.01,'ruim'],[75,'ruim'],[75.01,'muito_ruim'],[125,'muito_ruim'],[125.01,'pessima'],[160,'pessima'],[250,'pessima']])assert.equal(expectedBand(v)?.id,b);for(const v of [null,undefined,NaN,Infinity,-1,'25'])assert.equal(expectedBand(v),null);});
+test('respostas Jev divergentes ou malformadas não são aceitas',()=>{assert.equal(validateAnswer({type:'choice',choice:'ruim'},57.6),true);assert.equal(validateAnswer({type:'choice',choice:'boa'},57.6),false);assert.equal(validateAnswer({choice:'ruim'},57.6),false);assert.equal(validateAnswer(null,57.6),false);});
+test('somente observações atuais e resultados exatamente correspondentes',async()=>{const seed=JSON.parse(await readFile(new URL('./fixtures/purpleair-real.json',import.meta.url)));const pa=describeSensors({sensors:rows(seed.raw),collectedAt:seed.collectedAt,sourceTime:seed.raw.time_stamp*1000},Date.parse(seed.collectedAt));const items=observations({air:null},pa);assert.equal(items.length,10);const p=new JevClassifier('');const item=items[0];p.cache.entries={[item.id]:{value:item.value,time:'wrong',label:'Ruim'}};assert.ok(p.decorate({air:null},pa).purpleair.sensors.every(s=>s.classification===null));p.cache.entries[item.id].time=item.time;assert.equal(p.decorate({air:null},pa).purpleair.sensors.filter(s=>s.classification).length,1);});

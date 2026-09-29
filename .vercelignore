@@ -1,0 +1,6 @@
+.env*
+.git
+.openai
+data
+node_modules
+README.md

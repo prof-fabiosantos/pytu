@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {rows,describeSensors,neighborhoodAt,PurpleAirStore} from '../purpleair.mjs';
+const seed=JSON.parse(await readFile(new URL('./fixtures/purpleair-real.json',import.meta.url)));
+const state={sensors:rows(seed.raw),collectedAt:seed.collectedAt,sourceTime:seed.raw.time_stamp*1000};
+test('leituras reais preservadas e bairros identificados',()=>{const d=describeSensors(state,Date.parse(seed.collectedAt));assert.equal(d.sensors.length,13);assert.equal(d.sensors.find(s=>s.id===315615).pm25,57.6);assert.equal(neighborhoodAt(-59.964367,-3.089241),'COROADO');assert.ok(d.clockWarning);assert.equal(d.sensors.filter(s=>s.available).length,10);});
+test('cache antigo não é atual, mesmo com horário da fonte',()=>{assert.ok(describeSensors(state,Date.parse(seed.collectedAt)+3*3600000).sensors.every(s=>!s.available));});
+test('valor ausente não vira zero',()=>{const d=describeSensors({...state,sensors:[{...state.sensors[1],'pm2.5_10minute':null}]},Date.parse(seed.collectedAt));assert.equal(d.sensors[0].pm25,null);assert.equal(d.sensors[0].available,false);});
+test('requisições concorrentes e reinícios respeitam última tentativa persistida',async()=>{const p=new PurpleAirStore('');p.state={lastAttempt:Date.now()};p.collect=()=>{throw Error('Não deveria consultar a API');};await Promise.all([p.refresh(),p.refresh()]);});

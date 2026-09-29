@@ -1,0 +1,10 @@
+.env*
+!.env.example
+/data/
+/node_modules/
+/.vercel/
+/.openai/
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

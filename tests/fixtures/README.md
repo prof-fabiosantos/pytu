@@ -1,0 +1,1 @@
+Recortes reais obtidos em 24/09/2026. air-real.json: resposta Open-Meteo/CAMS com URL e coleta. inpe-real.csv: cabeçalho e primeiras 20 linhas Amazonas do arquivo INPE focos_diario_br_20260924.csv. Uso exclusivo em testes, nunca como fallback da aplicação.

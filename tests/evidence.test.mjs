@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {describeAir,normalizeFires,parseCSV} from '../sources.mjs';
+const air=JSON.parse(await readFile(new URL('./fixtures/air-real.json',import.meta.url),'utf8'));
+const csv=await readFile(new URL('./fixtures/inpe-real.csv',import.meta.url),'utf8');
+test('leitura real conserva valor e horário, com fonte regional',()=>{const now=Date.parse(air.collectedAt),view=describeAir(air.raw,air.collectedAt,now);assert.equal(view.available,true);assert.equal(view.kind,'model');assert.equal(view.resolutionKm,45);const index=air.raw.hourly.time.indexOf(view.current.time/1000);assert.equal(view.current.value,air.raw.hourly.pm2_5[index]);assert.equal(view.modelIssuedAt,null);assert(view.current.time<=now);assert.equal(view.next.time-view.current.time,6*3600000);});
+test('coleta vencida não produz tendência atual',()=>{const view=describeAir(air.raw,air.collectedAt,Date.parse(air.collectedAt)+3*3600000);assert(view.stale);assert.equal(view.available,false);assert.equal(view.futureTrend,'Sem comparação disponível');});
+test('ausência de valores não vira concentração zero',()=>{const raw=structuredClone(air.raw);raw.hourly.pm2_5=raw.hourly.pm2_5.map(()=>null);const view=describeAir(raw,air.collectedAt,Date.parse(air.collectedAt));assert.equal(view.current,null);assert.equal(view.available,false);});
+test('formato incompatível é recusado',()=>{assert.throws(()=>describeAir({hourly:{time:[1],pm2_5:[]}},air.collectedAt));});
+test('INPE real respeita UTC, janela e duplicatas',()=>{const row=parseCSV(csv)[0],now=Date.parse(row.data_hora_gmt.replace(' ','T')+'Z')+3600000;const once=normalizeFires([csv],now),twice=normalizeFires([csv,csv],now);assert(once.length>0);assert.equal(once.length,twice.length);assert(once.every(p=>Date.parse(p.time)<=now&&Date.parse(p.time)>=now-86400000));assert.equal(normalizeFires([csv],now+48*3600000).length,0);});
