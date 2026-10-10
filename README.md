@@ -4,9 +4,24 @@ Piloto de comunicação ambiental para Manaus: mapa de sensores, detecções de 
 
 **Aplicação:** https://pytu.ia.br · **Autor:** Prof. Dr. Fabio Santos · **Afiliação:** EST/UEA e LSI · **Contato:** fssilva@uea.edu.br
 
-## Executar localmente
+## Instalação e execução local
 
-Requer Node.js 22 ou superior e npm.
+### 1. Pré-requisitos
+
+- Git para clonar o repositório.
+- **Node.js 24** e npm. Esta é a versão usada na verificação da aplicação; o projeto declara Node.js >=22, mas versões antigas dessa linha podem não reconhecer a opção `--env-file-if-exists`.
+- Acesso à internet para consultar fontes ambientais e serviços de IA.
+- Chaves das APIs para os recursos que deseja habilitar (veja a tabela abaixo).
+
+Confira as ferramentas no terminal:
+
+```sh
+node --version
+npm --version
+git --version
+```
+
+### 2. Baixar o projeto e instalar as dependências
 
 ```sh
 git clone https://github.com/prof-fabiosantos/pytu.git
@@ -14,24 +29,98 @@ cd pytu
 npm ci
 ```
 
-Copie `.env.example` para `.env` e preencha as chaves. No PowerShell: `Copy-Item .env.example .env`.
+Execute os próximos comandos nessa pasta, onde está o arquivo `package.json`. Não é necessário instalar Python, banco de dados ou Vercel CLI para rodar localmente.
+
+### 3. Configurar as chaves
+
+Crie o arquivo `.env` a partir do exemplo **apenas na primeira instalação**, para não sobrescrever sua configuração.
+
+**Windows / PowerShell:**
+
+```powershell
+Copy-Item .env.example .env
+notepad .env
+```
+
+**Linux / macOS:**
+
+```sh
+cp .env.example .env
+```
+
+Abra `.env` em um editor e preencha os valores depois de `=`. Não coloque chaves no código nem envie esse arquivo para o GitHub.
+
+| Variável | Configuração local | Finalidade |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | Necessária para o agente | Conversa com Gemini 2.5 Flash |
+| `PURPLEAIR_API_KEY` | Necessária para sensores | Chave de leitura da API PurpleAir |
+| `TYPESAFE_API_KEY` | Necessária para as faixas indicativas | Classificação Jev / TypeSafe, conferida por regras numéricas |
+| `PORT` | `8766` no exemplo | Porta HTTP local |
+| `BLOB_READ_WRITE_TOKEN` | Deixe vazio para uso local | Persistência privada na Vercel |
+| `CRON_SECRET` | Deixe vazio para uso local | Autorização da coleta agendada na Vercel |
+
+CAMS/Open-Meteo e os arquivos INPE utilizados pelo projeto não exigem chave nesta integração. Sem uma chave de IA ou PurpleAir, o respectivo recurso fica indisponível; o sistema não cria dados de exemplo. Chamadas às APIs podem consumir créditos ou gerar cobrança. O projeto não consulta saldo nem garante duração de créditos gratuitos.
+
+### 4. Iniciar o PYTU
 
 ```sh
 npm start
 ```
 
-Abra http://127.0.0.1:8766. O comando prepara o diretório de dados sem sobrescrever caches existentes. O cadastro inicial contém somente identificadores, nomes e coordenadas públicas de 13 sensores, sem leituras ambientais antigas. A primeira coleta consulta as fontes reais. Sem credenciais ou sem resposta válida, os recursos correspondentes ficam indisponíveis.
+Aguarde o terminal mostrar o endereço do servidor. A primeira inicialização pode demorar enquanto consulta as fontes. Abra:
 
-| Variável | Uso |
+- **Mapa e agente:** http://127.0.0.1:8766/
+- **Dashboard histórico:** http://127.0.0.1:8766/historico.html
+
+Mantenha o terminal aberto. Para encerrar, pressione **Ctrl+C**. Após alterar as chaves no `.env`, reinicie o servidor. Se mudar `PORT`, use a nova porta no endereço.
+
+`npm start` executa automaticamente a preparação de `data/`, preservando caches existentes. O cadastro inicial contém apenas identificadores, nomes e coordenadas públicas de 13 sensores, sem leituras ambientais antigas. As coletas usam fontes reais.
+
+O servidor fica vinculado a `127.0.0.1`, para acesso no próprio computador. Abrir o HTML diretamente ou hospedar somente `dist/` não disponibiliza a API, o agente nem o histórico.
+
+### 5. Conferir a instalação
+
+```sh
+npm test
+```
+
+Os testes usam recortes reais arquivados e verificações locais; não precisam das chaves de API. Na interface, confira os horários das fontes e teste uma pergunta ao agente. O histórico começa com as coletas disponíveis e pode inicialmente mostrar apenas um ponto.
+
+Para verificar a API pelo PowerShell, com o servidor em execução:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8766/api/evidence
+```
+
+### Comandos disponíveis
+
+| Comando | O que faz |
 | --- | --- |
-| `GEMINI_API_KEY` | Conversa com Gemini 2.5 Flash |
-| `PURPLEAIR_API_KEY` | Chave de leitura dos sensores PurpleAir |
-| `TYPESAFE_API_KEY` | Classificação auxiliar Jev / TypeSafe |
-| `PORT` | Porta local; padrão 8766 |
-| `BLOB_READ_WRITE_TOKEN` | Persistência privada na implantação Vercel |
-| `CRON_SECRET` | Autorização da coleta agendada na Vercel |
+| `npm ci` | Instala as versões de dependências do lockfile |
+| `npm start` | Prepara os arquivos locais e inicia o servidor |
+| `npm run setup` | Prepara o cadastro de sensores sem iniciar o servidor |
+| `npm test` | Executa a suíte de testes |
+| `npm run init:cloud` | Inicializa um Blob privado para uma nova implantação Vercel; não é necessário localmente |
 
-Credenciais ficam exclusivamente no servidor. Chamadas às APIs podem consumir créditos ou gerar cobrança. O projeto não consulta saldo nem garante a duração de créditos gratuitos.
+### Uso e persistência
+
+- Escolha um bairro ou clique em **Usar minha localização**. A identificação ocorre no navegador; as coordenadas não são armazenadas nem enviadas ao agente. A permissão pode ser recusada e a seleção manual continua disponível.
+- Abra **Histórico** para consultar até 31 dias por vez, filtrar bairro/sensor ou município e baixar CSV por dia ou período.
+- Localmente, caches e histórico ficam em `data/`; faça backup dessa pasta se quiser preservar a série. Use somente uma instância do servidor por diretório de dados.
+- O histórico local e o histórico da Vercel são independentes: rodar o projeto no computador não baixa automaticamente o arquivo de produção.
+
+### Problemas comuns
+
+| Sintoma | O que conferir |
+| --- | --- |
+| `node` ou `npm` não encontrado | Instale Node.js e reabra o terminal |
+| Opção `--env-file-if-exists` desconhecida | Atualize para Node.js 24 |
+| PowerShell bloqueia `npm.ps1` | Use `npm.cmd ci`, `npm.cmd start` ou `npm.cmd test` |
+| Porta em uso / `EADDRINUSE` | Encerre a outra instância ou altere `PORT` no `.env` |
+| Agente indisponível | Confira `GEMINI_API_KEY`, acesso à API e cota do provedor |
+| Sensores ou classificação indisponíveis | Confira as chaves PurpleAir/TypeSafe, cotas, horários e mensagens das fontes |
+| Histórico vazio | Aguarde uma coleta válida; não há preenchimento retroativo automático |
+| Localização recusada ou imprecisa | Escolha o bairro manualmente; em hospedagem, use HTTPS |
 
 ## Fontes e limites
 
@@ -80,6 +169,9 @@ classification.mjs     integração Jev e conferência numérica
 agent-instructions.mjs instruções de fundamentação do agente
 cloud.mjs              persistência Blob e limites compartilhados
 locations.mjs          resolução de bairros
+history.mjs            registros, deduplicação, datas e CSV
+history-cloud.mjs      arquivo diário no Blob privado
+history-local.mjs      arquivo diário local em data/history/
 config/sensors.json    metadados públicos iniciais, sem leituras
 scripts/               preparação local e inicialização de novo Blob
 dist/                  interface, cartografia e Leaflet
@@ -108,3 +200,15 @@ Os testes cobrem valores e horários reais, ausências, validade temporal, janel
 - Cartografia © colaboradores OpenStreetMap; biblioteca Leaflet 1.9.4, com licença própria.
 
 As fontes e serviços possuem condições de uso próprias; disponibilidade pública não elimina essas condições. Este repositório não atribui uma nova licença aos dados de terceiros.
+
+## Histórico ambiental
+
+Acesse `/historico.html` pelo menu Histórico. A aplicação arquiva as coletas reais em documentos diários no fuso America/Manaus e gera CSV separados para ar e fogo. Na Vercel, os arquivos ficam no Blob privado em `pytu/history/v1/AAAA-MM-DD.json`, `AAAA-MM-DD-air.csv` e `AAAA-MM-DD-fire.csv`; localmente ficam em `data/history/`. O JSON é a fonte canônica; os CSV podem ser regenerados pela API.
+
+`GET /api/history?start=AAAA-MM-DD&end=AAAA-MM-DD` retorna até 31 dias. Acrescente `&csv=air` ou `&csv=fire` para download de todas as observações do período (os filtros visuais não restringem o CSV).
+
+A gravação acompanha a coleta já existente: primeiro acesso após uma hora, além da verificação diária configurada. Não há garantia de coleta horária sem acessos. O recurso não recupera automaticamente dados anteriores à ativação. Dados reais presentes no cache inicial, inclusive detecções do dia anterior, podem entrar na primeira gravação.
+
+As observações são deduplicadas por fonte, sensor e horário; detecções usam identidade, coordenadas, horário e satélite. A primeira observação é preservada. Apenas o ponto corrente do CAMS é arquivado; previsões futuras não são registradas como observações passadas. Falhas de arquivo são sinalizadas em `evidence.history.error` e no mapa.
+
+O gráfico de ar mostra a média aritmética das amostras disponíveis de um único sensor ou do CAMS, sem misturar as fontes. Isso não é uma média contínua de 24 horas nem IQAr oficial. PurpleAir usa último contato como referência temporal, não garantia do horário exato da média de 10 minutos. O CSV preserva avisos de divergência dos relógios. Contagens INPE têm cobertura parcial e não equivalem a incêndios únicos. Lacunas não são convertidas em zero.
