@@ -1,3 +1,5 @@
+import {readHistory} from '../history-cloud.mjs';
+import {dateRange,csv} from '../history.mjs';
 import {cloudEvidence,reserveChat} from '../cloud.mjs';
 import {resolveLocation} from '../locations.mjs';
 import {instructions} from '../agent-instructions.mjs';
@@ -5,6 +7,12 @@ function json(res,status,value){res.writeHead(status,{'Content-Type':'applicatio
 export default async function handler(req,res){
  try{
   const url=new URL(req.url,'https://pytu.invalid');const route=url.searchParams.get('route')??url.pathname.split('/').pop();
+  if(route==='history'&&req.method==='GET'){
+   let days;try{days=dateRange(url.searchParams.get('start'),url.searchParams.get('end'));}catch{return json(res,400,{error:'Selecione datas válidas em um intervalo de até 31 dias.'});}
+   const data=await readHistory(days);const type=url.searchParams.get('csv');
+   if(type){if(!['air','fire'].includes(type))return json(res,400,{error:'Tipo CSV inválido.'});res.writeHead(200,{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="pytu-'+type+'-'+days[0]+'-'+days.at(-1)+'.csv"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});return res.end(csv(data.days.flatMap(d=>d[type]),type));}
+   return json(res,200,data);
+  }
   if(route==='collect'){
    if(req.method!=='GET'||!process.env.CRON_SECRET||req.headers.authorization!=='Bearer '+process.env.CRON_SECRET)return json(res,401,{error:'Não autorizado'});
    await cloudEvidence();return json(res,200,{ok:true});
