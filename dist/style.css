@@ -9,3 +9,7 @@ footer{flex-wrap:wrap}
 .location-label{max-width:260px}.location-label small{margin-top:4px}
 
 #locate{display:block;width:100%;margin:10px 0;padding:10px;border:1px solid #adc7b5;border-radius:6px;background:#135c49;color:white}#locationStatus{font-size:12px;line-height:1.5;margin:8px 0 12px}
+
+/* Seleção do local junto ao agente, ao lado do mapa. */
+.intro{display:block;margin-bottom:24px}.interaction-side{display:grid;gap:20px;min-width:0}.interaction-side .place{width:100%;margin-top:0}.intro h1 br{display:none}.intro h1 span::before{content:" "}@media(max-width:800px){.intro h1 br{display:initial}.intro h1 span::before{content:none}.interaction-side{gap:18px}}
+@media(max-width:800px){.interaction-side{display:contents}.interaction-side .place{grid-row:1}.app-grid>.map-side{grid-row:2}.interaction-side .chat-side{grid-row:3}}
