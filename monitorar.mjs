@@ -18,7 +18,8 @@ export function normalizeMonitorAr(payload,collectedAt){
  return {stationId:178586,name:'FIOTEC – Amazonas',source:MONITORAR_SOURCE.name,sourceUrl:MONITORAR_SOURCE.url,city:'Manaus',lat,lon,pollutant:'MP2,5',iqar:measurement.indiceQualidadeAr,classification:label,time:sourceTime(measurement.dtMedicao),sourceTime:measurement.dtMedicao,sourceTimezone:'America/Sao_Paulo (UTC−3)',averagingPeriod:'24 horas',collectedAt,scope:'Ponto da estação; não representa todos os bairros de Manaus.'};
 }
 export function monitorArView(state={},now=Date.now(),configured=true){
- const reading=state.reading??null;
+ const format=t=>new Date(t).toLocaleString('pt-BR',{timeZone:'America/Manaus'})+' (Manaus, UTC−4)';
+ const reading=state.reading?{...state.reading,timeManaus:format(state.reading.time),collectedAtManaus:format(state.reading.collectedAt)}:null;
  const stale=!!reading&&(now-Date.parse(reading.collectedAt)>2*HOUR||now-Date.parse(reading.time)>2*HOUR||Date.parse(reading.time)>now+300000);
  return {configured,available:configured&&!!reading&&!stale,stale,reading,error:state.error??null,lastAttempt:state.lastAttempt?new Date(state.lastAttempt).toISOString():null,nextCollection:state.lastAttempt?new Date(state.lastAttempt+HOUR).toISOString():null,source:MONITORAR_SOURCE,notice:'IQAr informado pela fonte, baseado na média de 24 horas de MP2,5. Não é concentração em µg/m³ nem faixa Jev. Consulta no primeiro acesso após uma hora; a fonte pode atualizar em outro ritmo.'};
 }
