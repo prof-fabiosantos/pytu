@@ -6,7 +6,7 @@ import {DocumentConflict} from '../document-store.mjs';
 const fixture=JSON.parse(await readFile(new URL('./fixtures/monitorar-real.json',import.meta.url),'utf8'));
 test('MonitorAr real: preserves IQAr, source class and Brasília time; no concentration conversion',()=>{
  const r=normalizeMonitorAr(fixture.payload,fixture.collectedAt);
- assert.equal(r.iqar,42);assert.equal(r.classification,'Moderada');assert.equal(r.time,'2026-10-22T14:00:00.000Z');assert.equal(r.averagingPeriod,'24 horas');assert.equal(r.pm25,undefined);
+ assert.equal(r.iqar,42);assert.equal(r.classification,'Moderada');assert.equal(r.time,'2026-10-22T14:00:00.000Z');assert.equal(r.averagingPeriod,'24 horas');assert.equal(r.pm25,undefined);assert.match(monitorArView({reading:r}).reading.timeManaus,/10:00:00/);
  const now=Date.parse(r.time)+3600000;
  assert.equal(monitorArView({reading:{...r,collectedAt:new Date(now).toISOString()}},now).available,true);
  assert.equal(monitorArView({reading:r},Date.parse(r.time)+3*3600000).available,false);
