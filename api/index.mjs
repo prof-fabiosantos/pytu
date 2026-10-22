@@ -3,7 +3,7 @@ import {dateRange,csv} from '../history.mjs';
 import {cloudEvidence,reserveChat} from '../cloud.mjs';
 import {resolveLocation} from '../locations.mjs';
 import {instructions} from '../agent-instructions.mjs';
-function json(res,status,value){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));}
+function json(res,status,value,shared=false){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store',...(shared?{'Vercel-CDN-Cache-Control':'public, s-maxage=300'}:{}),'X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));}
 export default async function handler(req,res){
  try{
   const url=new URL(req.url,'https://pytu.invalid');const route=url.searchParams.get('route')??url.pathname.split('/').pop();
@@ -11,13 +11,13 @@ export default async function handler(req,res){
    let days;try{days=dateRange(url.searchParams.get('start'),url.searchParams.get('end'));}catch{return json(res,400,{error:'Selecione datas válidas em um intervalo de até 31 dias.'});}
    const data=await readHistory(days);const type=url.searchParams.get('csv');
    if(type){if(!['air','fire'].includes(type))return json(res,400,{error:'Tipo CSV inválido.'});res.writeHead(200,{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="pytu-'+type+'-'+days[0]+'-'+days.at(-1)+'.csv"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});return res.end(csv(data.days.flatMap(d=>d[type]),type));}
-   return json(res,200,data);
+   return json(res,200,data,true);
   }
   if(route==='collect'){
    if(req.method!=='GET'||!process.env.CRON_SECRET||req.headers.authorization!=='Bearer '+process.env.CRON_SECRET)return json(res,401,{error:'Não autorizado'});
-   await cloudEvidence();return json(res,200,{ok:true});
+   await cloudEvidence({force:true});return json(res,200,{ok:true});
   }
-  if(route==='evidence'&&req.method==='GET')return json(res,200,await cloudEvidence());
+  if(route==='evidence'&&req.method==='GET')return json(res,200,await cloudEvidence(),true);
   if(route!=='chat')return json(res,404,{error:'Rota não encontrada'});
   if(req.method!=='POST')return json(res,405,{error:'Método não permitido'});
   if(req.headers.origin&&req.headers.origin!=='https://'+req.headers.host)return json(res,403,{error:'Origem não permitida'});
