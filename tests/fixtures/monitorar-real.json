@@ -1,0 +1,30 @@
+{
+  "collectedAt": "2026-10-22T16:05:14.550Z",
+  "payload": [
+    {
+      "idEstacao": 178586,
+      "nuLatitude": "-3.112545",
+      "nuLongitude": "-60.011875",
+      "indiceQualidadeArAtual": {
+        "poluente": {
+          "idPoluente": 15,
+          "noPoluente": "MP₂,₅",
+          "dsPoluente": "Material Particulado com diâmetro de até 2,5 μm",
+          "medicoes": null
+        },
+        "classificacaoIqAr": {
+          "id": 2,
+          "noClassificacao": "Moderada"
+        },
+        "medicao": {
+          "idMedicao": null,
+          "indiceQualidadeAr": 42,
+          "idEstacao": null,
+          "dtMedicao": "2026-10-22 11:00",
+          "stDadoValidado": null,
+          "classificacaoIqAr": null
+        }
+      }
+    }
+  ]
+}
