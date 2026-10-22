@@ -1,29 +1,31 @@
+import {createReadCache} from './read-cache.mjs';
+const evidenceReads=createReadCache();
 import {archiveEvidence} from './history-cloud.mjs';
-import {get,put,BlobPreconditionFailedError} from '@vercel/blob';
+import {readDocument,writeDocument,DocumentConflict} from './document-store.mjs';
 import {EvidenceStore} from './sources.mjs';
 import {PurpleAirStore} from './purpleair.mjs';
 import {JevClassifier} from './classification.mjs';
 const HOUR=3600000;
-// Blob reads may return a weak HTTP validator; conditional writes require the strong form.
-export function writeEtag(etag){return typeof etag==='string'?etag.replace(/^W\//,''):etag;}
-
-export async function readDocument(path){const result=await get(path,{access:'private',useCache:false});return result?{value:await new Response(result.stream).json(),etag:result.blob.etag}:null;}
-export async function writeDocument(path,value,etag){return put(path,JSON.stringify(value),{access:'private',addRandomSuffix:false,contentType:'application/json',...(etag?{ifMatch:writeEtag(etag)}:{allowOverwrite:false})});}
+export {writeEtag,readDocument,writeDocument} from './document-store.mjs';
 export function hydrate(value){
  const store=new EvidenceStore('');store.state=structuredClone(value.evidence);store.lastAttempt=Date.parse(store.state.lastAttempt)||value.lastAttempt;store.save=async()=>{};
  const pa=new PurpleAirStore('');pa.state=structuredClone(value.purpleair);pa.save=async()=>{};
  const jev=new JevClassifier('');jev.cache=structuredClone(value.jev);jev.status=jev.cache.status??'waiting';jev.save=async()=>{};
  return {store,pa,jev};
 }
-export async function cloudEvidence(){
+export function cloudEvidence({force=false}={}){
+ if(force)evidenceReads.clear("evidence");
+ return evidenceReads.read("evidence",collectEvidence);
+}
+async function collectEvidence(){
  let doc=await readDocument('pytu/evidence.json');if(!doc)throw Error('Cache inicial não configurado');
  const collectDue=Date.now()-doc.value.lastAttempt>=HOUR;
  if(collectDue||(!doc.value.historyAttempt)){
   const reserved={...doc.value,lastAttempt:Date.now(),historyAttempt:doc.value.historyAttempt??new Date().toISOString()};let lease;
-  try{lease=await writeDocument('pytu/evidence.json',reserved,doc.etag);}catch(e){if(!(e instanceof BlobPreconditionFailedError))throw e;}
+  try{lease=await writeDocument('pytu/evidence.json',reserved,doc.etag);}catch(e){if(!(e instanceof DocumentConflict))throw e;}
   if(lease){
    const {store,pa,jev}=hydrate(reserved);
-   if(doc.value.historyError)await archiveEvidence(jev.decorate(store.view(),pa.view()));
+   if(doc.value.historyError){try{await archiveEvidence(jev.decorate(store.view(),pa.view()));}catch{console.error('PYTU: tentativa de recuperar arquivo histórico falhou');}}
    if(collectDue){await Promise.all([store.refresh(),pa.refresh()]);await jev.refresh(store.view(),pa.view());}
    let historyError=null;try{await archiveEvidence(jev.decorate(store.view(),pa.view()));}catch{historyError="Não foi possível registrar a última coleta no histórico.";console.error("PYTU: falha no arquivo histórico");}
    const updated={lastAttempt:collectDue?reserved.lastAttempt:doc.value.lastAttempt,evidence:store.state,purpleair:pa.state,jev:jev.cache,historyAttempt:new Date().toISOString(),historyError};
@@ -38,6 +40,6 @@ export async function reserveChat(){
   const doc=await readDocument('pytu/chat-budget.json');if(!doc)throw Error('Limite de uso não configurado');
   const now=Date.now(),day=new Date(now).toISOString().slice(0,10);const old=doc.value;const recent=(old.recent??[]).filter(t=>t>now-60000);const count=old.day===day?old.count:0;
   if(count>=100||recent.length>=6)return false;
-  try{await writeDocument('pytu/chat-budget.json',{day,count:count+1,recent:[...recent,now]},doc.etag);return true;}catch(e){if(!(e instanceof BlobPreconditionFailedError))throw e;}
+  try{await writeDocument('pytu/chat-budget.json',{day,count:count+1,recent:[...recent,now]},doc.etag);return true;}catch(e){if(!(e instanceof DocumentConflict))throw e;}
  }return false;
 }

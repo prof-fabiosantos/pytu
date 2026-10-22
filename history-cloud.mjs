@@ -1,13 +1,16 @@
-import {get,put,BlobPreconditionFailedError} from '@vercel/blob';
+import {createReadCache} from './read-cache.mjs';
+const historyReads=createReadCache();
+import {put} from '@vercel/blob';
+import {readDocument,writeDocument,DocumentConflict,backend} from './document-store.mjs';
 import {snapshot,mergeDay,emptyDay,csv} from './history.mjs';
 const base='pytu/history/v1/';
-async function read(day){const r=await get(base+day+'.json',{access:'private',useCache:false});return r?{value:await new Response(r.stream).json(),etag:r.blob.etag}:null;}
+async function read(day){return readDocument(base+day+'.json');}
 export async function archiveEvidence(e){for(const incoming of snapshot(e)){
  let saved;
  for(let i=0;i<3;i++){const old=await read(incoming.day),value=mergeDay(old?.value??emptyDay(incoming.day),incoming);
- try{await put(base+incoming.day+'.json',JSON.stringify(value),{access:'private',addRandomSuffix:false,contentType:'application/json',...(old?{ifMatch:old.etag.replace(/^W\//,'')}:{allowOverwrite:false})});saved=value;break;}catch(error){if(!(error instanceof BlobPreconditionFailedError))throw error;}}
+ try{await writeDocument(base+incoming.day+'.json',value,old?.etag);saved=value;historyReads.clear(incoming.day);break;}catch(error){if(!(error instanceof DocumentConflict))throw error;}}
  if(!saved)throw Error('Conflito ao registrar histórico');
  // JSON is authoritative; CSV exports can always be regenerated from it.
- for(const type of ['air','fire'])await put(base+incoming.day+'-'+type+'.csv',csv(saved[type],type),{access:'private',addRandomSuffix:false,allowOverwrite:true,contentType:'text/csv; charset=utf-8'});
+ if(backend()==='blob')for(const type of ['air','fire'])await put(base+incoming.day+'-'+type+'.csv',csv(saved[type],type),{access:'private',addRandomSuffix:false,allowOverwrite:true,contentType:'text/csv; charset=utf-8'});
 }}
-export async function readHistory(days){const documents=await Promise.all(days.map(read));return {days:days.map((day,i)=>documents[i]?.value??emptyDay(day)),timezone:'America/Manaus',note:'Histórico das coletas efetivamente realizadas. Lacunas não significam zero. Médias das amostras disponíveis não são médias contínuas de 24 horas nem IQAr oficial.'};}
+export async function readHistory(days){const documents=await Promise.all(days.map(day=>historyReads.read(day,()=>read(day))));return {days:days.map((day,i)=>documents[i]?.value??emptyDay(day)),timezone:'America/Manaus',note:'Histórico das coletas efetivamente realizadas. Lacunas não significam zero. Médias das amostras disponíveis não são médias contínuas de 24 horas nem IQAr oficial.'+(backend()==='supabase'&&days.some(day=>day<'2026-10-21')?' O novo armazenamento começou em 21/10/2026. Os arquivos anteriores permanecem no Vercel Blob, temporariamente bloqueado por limite de uso, e ainda não foram importados.':'')};}

@@ -212,3 +212,24 @@ A gravação acompanha a coleta já existente: primeiro acesso após uma hora, a
 As observações são deduplicadas por fonte, sensor e horário; detecções usam identidade, coordenadas, horário e satélite. A primeira observação é preservada. Apenas o ponto corrente do CAMS é arquivado; previsões futuras não são registradas como observações passadas. Falhas de arquivo são sinalizadas em `evidence.history.error` e no mapa.
 
 O gráfico de ar mostra a média aritmética das amostras disponíveis de um único sensor ou do CAMS, sem misturar as fontes. Isso não é uma média contínua de 24 horas nem IQAr oficial. PurpleAir usa último contato como referência temporal, não garantia do horário exato da média de 10 minutos. O CSV preserva avisos de divergência dos relógios. Contagens INPE têm cobertura parcial e não equivalem a incêndios únicos. Lacunas não são convertidas em zero.
+
+
+## Controle de leituras do armazenamento
+
+A página consulta evidências a cada cinco minutos, somente quando a aba está visível. As respostas JSON de evidências e histórico têm cache de cinco minutos na CDN da Vercel; respostas de erro e chat não são compartilhadas. Cada instância mantém também um cache de leitura de cinco minutos, agrega chamadas simultâneas e aguarda um minuto antes de repetir uma leitura que falhou. Downloads CSV reutilizam o cache de documentos diários. A coleta autenticada ignora o cache de evidências, mas preserva o intervalo de coleta e a reserva condicional no armazenamento.
+
+As leituras usadas para reservar coleta, limitar o chat e mesclar arquivos continuam diretas e condicionais: não se usa um valor em cache para autorizar gravações concorrentes. O cache é temporário e não substitui backup. Instâncias diferentes e reinicializações podem gerar novas operações; não há garantia de ficar dentro da cota gratuita. Dados podem demorar alguns minutos adicionais para aparecer.
+
+Se o Blob estiver suspenso por cota, estas otimizações não o desbloqueiam. Preserve o store e os arquivos existentes. Não inicialize o histórico com valores fictícios nem considere falha de armazenamento como ausência de medições. Uma migração exige armazenamento de destino configurado e recuperação dos arquivos originais quando o acesso for restabelecido.
+
+## Supabase como armazenamento alternativo
+
+1. No SQL Editor do projeto Supabase, execute `supabase/schema.sql`. A tabela `pytu_documents` tem RLS ativada e não permite acesso direto por usuários anônimos ou autenticados.
+2. Configure somente no servidor: `PYTU_STORAGE=supabase`, `SUPABASE_URL` (URL do projeto) e `SUPABASE_SECRET_KEY` (Secret key, não Publishable key). Não exponha a chave em `dist/` nem no Git.
+3. Execute `npm run init:cloud` com essas variáveis. O comando cria somente os documentos de controle ausentes; não sobrescreve dados existentes nem inventa medições.
+4. Na Vercel, configure as mesmas três variáveis no ambiente de produção e publique o código atualizado. Preserve as demais chaves das fontes e o `CRON_SECRET`.
+5. Verifique `/api/evidence` e `/api/history` depois da primeira coleta. No Supabase, os documentos diários são armazenados como JSONB. Os CSV são gerados pela API a partir deles, sem duplicar arquivos no armazenamento.
+
+A atualização de documentos usa revisão condicional para evitar perda de registros e manter a reserva de coleta e os limites do agente. Falhas no banco não são convertidas em histórico vazio. O armazenamento local usado por `npm start` continua independente.
+
+Durante a migração, os arquivos antigos do Blob devem ser preservados. O novo banco não recupera automaticamente os dias anteriores: a recuperação depende de exportar os JSON originais quando o acesso ao Blob for liberado e mesclá-los sem descartar as novas observações. Não apague o store antigo.
