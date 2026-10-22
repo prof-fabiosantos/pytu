@@ -1,3 +1,4 @@
+import {cloudMonitorAr} from './monitorar.mjs';
 import {createReadCache} from './read-cache.mjs';
 const evidenceReads=createReadCache();
 import {archiveEvidence} from './history-cloud.mjs';
@@ -33,7 +34,7 @@ async function collectEvidence(){
   }else doc=await readDocument('pytu/evidence.json');
  }
  const {store,pa,jev}=hydrate(doc.value);const evidence=jev.decorate(store.view(),pa.view());
- return {...evidence,history:{lastAttempt:doc.value.historyAttempt??null,error:doc.value.historyError??null},nextCollection:new Date(doc.value.lastAttempt+HOUR).toISOString(),collectionMode:'on_access',collectionNote:'Na Vercel: atualização no primeiro acesso após uma hora, com cache compartilhado. Sem acesso, os horários não avançam. Há também uma verificação automática diária.',agent:{configured:!!process.env.GEMINI_API_KEY,status:process.env.GEMINI_API_KEY?'configured':'unconfigured',model:'gemini-2.5-flash'}};
+ return {...evidence,monitorar:await cloudMonitorAr(),history:{lastAttempt:doc.value.historyAttempt??null,error:doc.value.historyError??null},nextCollection:new Date(doc.value.lastAttempt+HOUR).toISOString(),collectionMode:'on_access',collectionNote:'Na Vercel: atualização no primeiro acesso após uma hora, com cache compartilhado. Sem acesso, os horários não avançam. Há também uma verificação automática diária.',agent:{configured:!!process.env.GEMINI_API_KEY,status:process.env.GEMINI_API_KEY?'configured':'unconfigured',model:'gemini-2.5-flash'}};
 }
 export async function reserveChat(){
  for(let i=0;i<3;i++){

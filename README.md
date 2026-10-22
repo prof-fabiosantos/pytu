@@ -233,3 +233,14 @@ Se o Blob estiver suspenso por cota, estas otimizações não o desbloqueiam. Pr
 A atualização de documentos usa revisão condicional para evitar perda de registros e manter a reserva de coleta e os limites do agente. Falhas no banco não são convertidas em histórico vazio. O armazenamento local usado por `npm start` continua independente.
 
 Durante a migração, os arquivos antigos do Blob devem ser preservados. O novo banco não recupera automaticamente os dias anteriores: a recuperação depende de exportar os JSON originais quando o acesso ao Blob for liberado e mesclá-los sem descartar as novas observações. Não apague o store antigo.
+
+
+## FioAres / MonitorAr
+
+Integração autorizada para a estação FIOTEC–Amazonas (178586). Configure `MONITORAR_ENDPOINT` exclusivamente no servidor com o endereço fornecido diretamente pela equipe. Não publique o valor em código, logs, documentação ou frontend. A atribuição pública é **FioAres / MonitorAr**, com link para https://monitorar.mma.gov.br.
+
+Uma reserva persistente é gravada antes da consulta: no máximo uma tentativa por hora, inclusive após falha, reinício ou acessos simultâneos. Na Vercel usa documento separado no armazenamento configurado; o cron e os acessos compartilham a reserva. Não há garantia de consultas horárias sem acessos. Localmente, quando `PYTU_STORAGE=supabase`, reutiliza o mesmo controle; caso contrário usa `data/monitorar.json`, com uma única instância. Não execute instalações independentes com o mesmo endpoint, pois suas reservas não seriam compartilhadas.
+
+O IQAr é recebido da fonte com a classificação original e média de 24 horas de MP2,5; não passa pelo Jev e não é concentração. O horário sem fuso recebido é interpretado como Brasília (UTC−3) e convertido para UTC; a interface exibe Manaus (UTC−4). Medição ou coleta com mais de duas horas, ou medição no futuro além da tolerância de cinco minutos, não é apresentada como atual. Valores ausentes e formatos inesperados são recusados, preservando a última leitura com aviso. A estação é mostrada separadamente no mapa e no contexto do agente, sem representar toda a cidade ou um bairro.
+
+Nesta etapa guarda-se apenas o último resultado para cache e operação. O IQAr não é incluído no histórico de concentrações nem nos CSV; a ampliação do arquivo e redistribuição histórica aguarda confirmação da equipe. Nenhum dado de visitante é enviado ao MonitorAr.
