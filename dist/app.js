@@ -53,12 +53,14 @@ $('locate').addEventListener('click',()=>{
 function renderMonitorAr(){
  const data=evidence.monitorar,reading=data?.reading;
  const colors={'boa':'#48bb78','moderada':'#f6cf4c','ruim':'#f69d61','muito ruim':'#ef4444','péssima':'#a00076'};
- const text=!data?.configured?'FioAres/MonitorAr ainda não configurado.':reading?`${data.available?'':'Leitura desatualizada ou horário inconsistente. '}IQAr ${reading.iqar} · ${reading.classification} · MP2,5, média de 24 horas. Medição: ${fmt(reading.time)}. Coleta: ${fmt(reading.collectedAt)}. ${data.error||''}`:data.error||'Sem IQAr disponível.';
+ const age=reading?Math.max(0,Math.floor((Date.now()-Date.parse(reading.time))/60000)):null;
+ const ageText=Number.isFinite(age)?`${Math.floor(age/60)}h ${age%60}min`:'idade não disponível';
+ const text=!data?.configured?'FioAres/MonitorAr ainda não configurado.':reading?`Último IQAr disponível: ${reading.iqar} · ${reading.classification} · MP2,5, média de 24 horas. Medição: ${fmt(reading.time)} (há ${ageText}). Consultado pelo PYTU: ${fmt(reading.collectedAt)}. Esta leitura não confirma a condição atual. ${data.stale?'Contorno tracejado: medição ou consulta com mais de duas horas, ou horário a conferir. Esse aviso é do PYTU; não é prazo de validade definido pela fonte. ':''}${data.error||''}`:data.error||'Sem IQAr disponível.';
  $('monitorarReading').textContent=text;
  $('monitorarTime').textContent=reading?'Coletado em '+fmt(reading.collectedAt):'Sem coleta válida';
  if(monitorarMarker&&map){map.removeLayer(monitorarMarker);monitorarMarker=null;}
  if(!map||!reading)return;
- const icon=document.createElement('span');icon.textContent='◆';icon.style.cssText='font-size:30px;text-shadow:0 0 2px #000;';icon.style.color=data.available?(colors[reading.classification.toLowerCase()]||'#9ca3af'):'#9ca3af';
+ const icon=document.createElement('span');icon.textContent='◆';icon.style.cssText='display:inline-flex;align-items:center;justify-content:center;width:30px;height:32px;box-sizing:border-box;font-size:30px;text-shadow:0 0 2px #000;background:#ffffffcc;'+(data.stale?'border:2px dashed #6b7280;border-radius:5px;':'');icon.style.color=colors[reading.classification.toLowerCase()]||'#9ca3af';
  const popup=document.createElement('div');popup.textContent='FIOTEC–Amazonas · FioAres/MonitorAr. '+text+' Ponto da estação, não representa todo o bairro.';
  const link=document.createElement('a');link.href='https://monitorar.mma.gov.br';link.textContent=' Consultar MonitorAr';link.target='_blank';link.rel='noopener';popup.append(link);
  monitorarMarker=L.marker([reading.lat,reading.lon],{icon:L.divIcon({html:icon,iconSize:[32,36],iconAnchor:[16,18],className:''})}).bindPopup(popup).bindTooltip('FIOTEC–Amazonas · IQAr (24 horas)').addTo(map);
