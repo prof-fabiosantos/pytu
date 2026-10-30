@@ -1,3 +1,4 @@
+import {mergeIqArHistory} from './monitorar-history.mjs';
 import {readDocument,writeDocument,DocumentConflict} from './document-store.mjs';
 export const MONITORAR_SOURCE={name:'FioAres / MonitorAr',url:'https://monitorar.mma.gov.br'};
 const HOUR=3600000;
@@ -21,11 +22,11 @@ export function monitorArView(state={},now=Date.now(),configured=true){
  const format=t=>new Date(t).toLocaleString('pt-BR',{timeZone:'America/Manaus'})+' (Manaus, UTC−4)';
  const reading=state.reading?{...state.reading,timeManaus:format(state.reading.time),collectedAtManaus:format(state.reading.collectedAt)}:null;
  const stale=!!reading&&(now-Date.parse(reading.collectedAt)>2*HOUR||now-Date.parse(reading.time)>2*HOUR||Date.parse(reading.time)>now+300000);
- return {configured,available:configured&&!!reading&&!stale,stale,reading,error:state.error??null,lastAttempt:state.lastAttempt?new Date(state.lastAttempt).toISOString():null,nextCollection:state.lastAttempt?new Date(state.lastAttempt+HOUR).toISOString():null,source:MONITORAR_SOURCE,notice:'IQAr informado pela fonte, baseado na média de 24 horas de MP2,5. Não é concentração em µg/m³ nem faixa Jev. Consulta no primeiro acesso após uma hora; a fonte pode atualizar em outro ritmo.'};
+ return {configured,available:configured&&!!reading&&!stale,stale,reading,error:state.error??null,lastAttempt:state.lastAttempt?new Date(state.lastAttempt).toISOString():null,nextCollection:state.lastAttempt?new Date(state.lastAttempt+HOUR).toISOString():null,history:{enabled:process.env.MONITORAR_HISTORY_ENABLED==='true',readings:process.env.MONITORAR_HISTORY_ENABLED==='true'?(state.history??[]):[],retentionDays:7},source:MONITORAR_SOURCE,notice:'IQAr informado pela fonte, baseado na média de 24 horas de MP2,5. Não é concentração em µg/m³ nem faixa Jev. Consulta no primeiro acesso após uma hora; a fonte pode atualizar em outro ritmo.'};
 }
 // A reservation is persisted BEFORE the HTTP request, including failures and crashes.
 // Never expose the configured address or provider error bodies in public responses.
-export function createMonitorArCollector({read,write,endpoint,request=fetch,now=Date.now}){
+export function createMonitorArCollector({read,write,endpoint,request=fetch,now=Date.now,historyEnabled=process.env.MONITORAR_HISTORY_ENABLED==='true'}){
  let pending=null;
  async function collect(){
   if(!endpoint)return monitorArView({},now(),false);
@@ -40,6 +41,7 @@ export function createMonitorArCollector({read,write,endpoint,request=fetch,now=
    if(!response.ok)throw Error('Provider unavailable');
    updated.reading=normalizeMonitorAr(await response.json(),new Date(now()).toISOString());updated.error=null;
   }catch{updated.error='Não foi possível atualizar FioAres/MonitorAr. Nova tentativa somente após uma hora; confira o horário da última leitura.';}
+  if(historyEnabled)updated.history=mergeIqArHistory(state.history,updated.error?null:updated.reading,now());
   await write(updated,lease.etag);
   return monitorArView(updated,now());
  }

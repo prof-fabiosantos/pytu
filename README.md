@@ -244,3 +244,18 @@ Uma reserva persistente é gravada antes da consulta: no máximo uma tentativa p
 O IQAr é recebido da fonte com a classificação original e média de 24 horas de MP2,5; não passa pelo Jev e não é concentração. O horário sem fuso recebido é interpretado como Brasília (UTC−3) e convertido para UTC; a interface exibe Manaus (UTC−4). Medição ou coleta com mais de duas horas, ou medição no futuro além da tolerância de cinco minutos, não é apresentada como atual. Valores ausentes e formatos inesperados são recusados, preservando a última leitura com aviso. A estação é mostrada separadamente no mapa e no contexto do agente, sem representar toda a cidade ou um bairro.
 
 Nesta etapa guarda-se apenas o último resultado para cache e operação. O IQAr não é incluído no histórico de concentrações nem nos CSV; a ampliação do arquivo e redistribuição histórica aguarda confirmação da equipe. Nenhum dado de visitante é enviado ao MonitorAr.
+
+
+### Gráfico de IQAr FIOTEC
+A seção independente no Histórico exibe barras por horário de medição, em Manaus, com classificação original, detalhes e tabela acessível. Os períodos de 24 horas e 7 dias são independentes dos filtros de PM2,5. Não mistura IQAr com concentrações nem interpola lacunas.
+
+`MONITORAR_HISTORY_ENABLED=false` é o padrão. Nesse modo, apenas a última leitura do cache pode aparecer, claramente identificada como observação isolada. Após esclarecer o armazenamento com o provedor, configure `MONITORAR_HISTORY_ENABLED=true` no servidor e reinicie/publique. O coletor passa a guardar uma janela móvel de sete dias no mesmo documento da coleta, sem novas requisições à fonte ou escritas adicionais. Não é um arquivo permanente: observações mais antigas saem da janela. Duplicatas por estação e horário são descartadas, preservando a primeira observação. Falhas não criam novas amostras; horários futuros e valores inválidos são recusados. Não há recuperação retroativa, exportação CSV de IQAr ou garantia de amostras em todas as horas. A ativação não altera a reserva de uma tentativa por hora.
+
+
+## Calor em Manaus
+
+Acesse /calor.html. O módulo consulta Open-Meteo no servidor, com temperatura a 2 m, sensação térmica, umidade e vento, e exibe 24 ou 48 horas. Não precisa de chave adicional. O serviço gratuito exige uso não comercial e atribuição Open-Meteo (dados CC BY 4.0). A previsão é para Manaus, não uma medição por bairro.
+
+GET /api/heat utiliza cache compartilhado no armazenamento configurado (Supabase ou Blob), com controle de revisão para limitar tentativas a uma por hora, inclusive em falhas. Há cache em memória de um minuto e cache CDN de cinco minutos. Localmente, o cache fica em data/heat.json. A consulta ocorre sob demanda e na coleta agendada já existente; não se promete coleta horária sem acessos. Após duas horas sem sucesso os valores deixam de aparecer como atuais. Não há histórico de medições de calor nesta versão. Falha neste módulo não impede a consulta às fontes de ar.
+
+O agente recebe as previsões e suas limitações. Avisos INMET e orientações do Ministério da Saúde são links oficiais, não alertas importados. Testes: npm test.

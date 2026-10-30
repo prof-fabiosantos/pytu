@@ -1,3 +1,4 @@
+import {cloudHeat} from '../heat-cloud.mjs';
 import {readHistory} from '../history-cloud.mjs';
 import {dateRange,csv} from '../history.mjs';
 import {cloudEvidence,reserveChat} from '../cloud.mjs';
@@ -7,6 +8,7 @@ function json(res,status,value,shared=false){res.writeHead(status,{'Content-Type
 export default async function handler(req,res){
  try{
   const url=new URL(req.url,'https://pytu.invalid');const route=url.searchParams.get('route')??url.pathname.split('/').pop();
+  if(route==='heat'&&req.method==='GET')return json(res,200,await cloudHeat(),true);
   if(route==='history'&&req.method==='GET'){
    let days;try{days=dateRange(url.searchParams.get('start'),url.searchParams.get('end'));}catch{return json(res,400,{error:'Selecione datas válidas em um intervalo de até 31 dias.'});}
    const data=await readHistory(days);const type=url.searchParams.get('csv');
@@ -15,7 +17,7 @@ export default async function handler(req,res){
   }
   if(route==='collect'){
    if(req.method!=='GET'||!process.env.CRON_SECRET||req.headers.authorization!=='Bearer '+process.env.CRON_SECRET)return json(res,401,{error:'Não autorizado'});
-   await cloudEvidence({force:true});return json(res,200,{ok:true});
+   await cloudEvidence({force:true});await cloudHeat();return json(res,200,{ok:true});
   }
   if(route==='evidence'&&req.method==='GET')return json(res,200,await cloudEvidence(),true);
   if(route!=='chat')return json(res,404,{error:'Rota não encontrada'});
@@ -29,7 +31,7 @@ export default async function handler(req,res){
   if(!selectedLocation||typeof data.question!=='string'||!data.question.trim()||data.question.length>1500)return json(res,400,{error:'Selecione um bairro e escreva uma pergunta de até 1.500 caracteres.'});
   if(!await reserveChat())return json(res,429,{error:'Limite de uso do piloto atingido (6 perguntas por minuto e 100 por dia, compartilhadas). Tente mais tarde.'});
   const evidence=await cloudEvidence();const municipalities={};if(evidence.fire&&!evidence.fire.stale)for(const f of evidence.fire.points)municipalities[f.municipality]=(municipalities[f.municipality]??0)+1;
-  const facts={...evidence,fire:evidence.fire?{...evidence.fire,points:undefined,count:evidence.fire.stale?null:evidence.fire.points.length,geographicScope:'ESTADO DO AMAZONAS, cobertura parcial, detecções não incêndios únicos',municipalities:Object.entries(municipalities).sort((a,b)=>b[1]-a[1]).slice(0,8)}:null,selectedLocation};
+  const facts={...evidence,heat:await cloudHeat(),fire:evidence.fire?{...evidence.fire,points:undefined,count:evidence.fire.stale?null:evidence.fire.points.length,geographicScope:'ESTADO DO AMAZONAS, cobertura parcial, detecções não incêndios únicos',municipalities:Object.entries(municipalities).sort((a,b)=>b[1]-a[1]).slice(0,8)}:null,selectedLocation};
   const history=Array.isArray(data.history)?data.history.slice(-6).filter(m=>['user','assistant'].includes(m.role)&&typeof m.content==='string').map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content.slice(0,2500)}]})):[];
   const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':process.env.GEMINI_API_KEY},body:JSON.stringify({systemInstruction:{parts:[{text:instructions+'\nEVIDENCIAS: '+JSON.stringify(facts)}]},contents:[...history,{role:'user',parts:[{text:data.question}]}],generationConfig:{temperature:.2,maxOutputTokens:1800,thinkingConfig:{thinkingBudget:0}}}),signal:AbortSignal.timeout(55000)});
   if(!response.ok)return json(res,502,{error:'Gemini indisponível. Tente novamente mais tarde.'});const result=await response.json();const candidate=result.candidates?.[0];const answer=candidate?.content?.parts?.filter(p=>typeof p.text==='string'&&!p.thought).map(p=>p.text).join('\n');
